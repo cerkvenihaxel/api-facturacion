@@ -10,7 +10,7 @@ class AfipWs {
     private $wsaaUrl;
     private $wswUrl;
     private $padronUrl;
-    private $credentials = []; // Arreglo para almacenar token/sign por servicio
+    private $credentials = [];
     private $client;
     private $padronClient;
 
@@ -21,7 +21,7 @@ class AfipWs {
         $this->wsaaUrl = URLWSAA_PROD;
         $this->wswUrl = URLWSW_PROD;
         $this->padronUrl = URLWSPADRON_PROD;
-        $this->login('wsfe'); // Login inicial para wsfe
+        $this->login('wsfe');
         $this->initSoapClients();
     }
 
@@ -222,17 +222,20 @@ class AfipWs {
         if (!isset($this->credentials['wsfe'])) {
             $this->login('wsfe');
         }
-    
+
         // 1) Obtener el último comprobante autorizado
         $ultimoNro = $this->getLastCMP($data['PtoVta'], $data['TipoComp']);
-    
+        file_put_contents(LOG_DIR . 'wsfe_last_cmp.log', "Último número autorizado para PtoVta {$data['PtoVta']}, TipoComp {$data['TipoComp']}: $ultimoNro");
+
+        $proximoNro = $ultimoNro + 1;
+
         // 2) Convertir y validar fechas
         $timezone = new \DateTimeZone('America/Argentina/Buenos_Aires');
         $fechaComp = \DateTime::createFromFormat('d/m/Y', $data['FechaComp'], $timezone);
         if ($fechaComp === false) {
             throw new \Exception("Error: Formato de fecha inválido para FechaComp ({$data['FechaComp']}). Debe ser dd/mm/yyyy.");
         }
-    
+
         $hoy = new \DateTime('now', $timezone);
         $limiteInferior = (clone $hoy)->modify('-10 days');
         $limiteSuperior = (clone $hoy)->modify('+10 days');
@@ -243,7 +246,7 @@ class AfipWs {
                 . $limiteSuperior->format('Y-m-d')
             );
         }
-    
+
         $fechaInicio = \DateTime::createFromFormat('d/m/Y', $data['facPeriodo_inicio'], $timezone);
         $fechaFin = \DateTime::createFromFormat('d/m/Y', $data['facPeriodo_fin'], $timezone);
         if ($fechaInicio === false || $fechaFin === false) {
@@ -252,17 +255,17 @@ class AfipWs {
         if ($fechaInicio > $fechaFin) {
             throw new \Exception("Error: La fecha de inicio del servicio ({$data['facPeriodo_inicio']}) no puede ser posterior a la de fin ({$data['facPeriodo_fin']}).");
         }
-    
+
         $fechaVto = \DateTime::createFromFormat('d/m/Y', $data['fechaUltimoDia'], $timezone);
         if ($fechaVto === false) {
             throw new \Exception("Error: Formato de fecha de vencimiento inválido ({$data['fechaUltimoDia']}). Debe ser dd/mm/yyyy.");
         }
-    
+
         // 3) Cálculo de montos: neto, IVA 21%, total
         $importeNeto = (float)$data['facTotal'];
         $importeIva = round($importeNeto * 0.21, 2);
         $importeTotal = $importeNeto + $importeIva;
-    
+
         // 4) Construir request
         $request = [
             'Auth' => [
@@ -273,16 +276,16 @@ class AfipWs {
             'FeCAEReq' => [
                 'FeCabReq' => [
                     'CantReg' => 1,
-                    'PtoVta' => (int)$data['PtoVta'], // Asegurar que sea entero
+                    'PtoVta' => (int)$data['PtoVta'],
                     'CbteTipo' => (int)$data['TipoComp']
                 ],
                 'FeDetReq' => [
                     'FECAEDetRequest' => [
-                        'Concepto' => 2, // Servicios
-                        'DocTipo' => 80, // CUIT
-                        'DocNro' => (int)$data['facCuit'], // Asegurar que sea entero
-                        'CbteDesde' => $ultimoNro + 1,
-                        'CbteHasta' => $ultimoNro + 1,
+                        'Concepto' => 2,
+                        'DocTipo' => 80,
+                        'DocNro' => (int)$data['facCuit'], // Usar el CUIT del input
+                        'CbteDesde' => $proximoNro,
+                        'CbteHasta' => $proximoNro,
                         'CbteFch' => $fechaComp->format('Ymd'),
                         'ImpNeto' => $importeNeto,
                         'ImpIVA' => $importeIva,
@@ -306,7 +309,7 @@ class AfipWs {
                 ]
             ]
         ];
-    
+
         // 5) Llamada a AFIP
         file_put_contents(LOG_DIR . 'wsfe_request.log', "Solicitud a FECAESolicitar:\n" . json_encode($request, JSON_PRETTY_PRINT));
         try {
@@ -349,10 +352,12 @@ class AfipWs {
                 'Sign' => $this->credentials['wsfe']['sign'],
                 'Cuit' => $this->cuit
             ],
-            'PtoVta' => $ptoVta,
-            'CbteTipo' => $tipoComp
+            'PtoVta' => (int)$ptoVta,
+            'CbteTipo' => (int)$tipoComp
         ];
+        file_put_contents(LOG_DIR . 'wsfe_last_cmp_request.log', "Solicitud a FECompUltimoAutorizado:\n" . json_encode($request, JSON_PRETTY_PRINT));
         $response = $this->client->FECompUltimoAutorizado($request);
-        return $response->FECompUltimoAutorizadoResult->CbteNro;
+        file_put_contents(LOG_DIR . 'wsfe_last_cmp_response.log', "Respuesta de FECompUltimoAutorizado:\n" . json_encode($response, JSON_PRETTY_PRINT));
+        return (int)$response->FECompUltimoAutorizadoResult->CbteNro;
     }
 }
