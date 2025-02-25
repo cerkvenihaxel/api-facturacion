@@ -1,0 +1,13 @@
+{
+    "name": "axelcrkv/proyecto-afip-api",
+    "description": "API para facturación con AFIP",
+    "require": {
+        "php": "^7.4",
+        "setasign/fpdf": "^1.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "AfipApi\\": "src/"
+        }
+    }
+}
