@@ -153,6 +153,32 @@ curl -X POST http://localhost:8080/ \
   }'
 ```
 
+## Endpoints
+
+| Método | Endpoint      | Descripción                         |
+|--------|--------------|-------------------------------------|
+| POST   | `/`          | Crear una factura electrónica       |
+| GET    | `/health`    | Healthcheck del sistema (status)    |
+
+### Ejemplo: Healthcheck
+
+```bash
+curl http://localhost:8080/health
+```
+
+**Respuesta esperada:**
+```json
+{
+  "status": "ok",
+  "php_version": "8.2.x",
+  "config": true,
+  "cert": true,
+  "key": true,
+  "logs_writable": true,
+  "facturas_writable": true
+}
+```
+
 ## Características
 
 - ✅ Compatible con PHP 8.2+
