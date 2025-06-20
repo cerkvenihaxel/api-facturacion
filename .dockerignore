@@ -11,10 +11,6 @@ docker-compose*
 logs/*
 !logs/.gitkeep
 
-# Certificados (se montan como volumen)
-certs/*
-!certs/.gitkeep
-
 # Facturas generadas
 public/facturas/*
 !public/facturas/.gitkeep
