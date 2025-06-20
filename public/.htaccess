@@ -1,0 +1,59 @@
+RewriteEngine On
+
+# Redirigir todas las peticiones a index.php excepto archivos existentes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Configuraciones adicionales para la API
+<IfModule mod_headers.c>
+    # Permitir CORS para desarrollo
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+    
+    # Configurar tipo de contenido para JSON
+    <FilesMatch "\.(json)$">
+        Header set Content-Type "application/json"
+    </FilesMatch>
+</IfModule>
+
+# Configuraciones de seguridad
+<IfModule mod_rewrite.c>
+    # Ocultar información del servidor
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
+</IfModule>
+
+# Configuraciones de PHP
+<IfModule mod_php.c>
+    # Configurar límites para subida de archivos
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 300
+    php_value memory_limit 256M
+    
+    # Configurar zona horaria
+    php_value date.timezone "America/Argentina/Buenos_Aires"
+</IfModule>
+
+# Configuraciones de seguridad adicionales
+<Files ".htaccess">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "*.log">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Permitir acceso a archivos PDF en el directorio facturas
+<Directory "/var/www/html/public/facturas">
+    Options -Indexes
+    Allow from all
+    <FilesMatch "\.pdf$">
+        Header set Content-Type "application/pdf"
+        Header set Content-Disposition "inline"
+    </FilesMatch>
+</Directory> 
