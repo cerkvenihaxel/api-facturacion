@@ -4,17 +4,17 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/config.php';
 
 class AfipWs {
-    private $cuit;
-    private $cert;
-    private $key;
-    private $wsaaUrl;
-    private $wswUrl;
-    private $padronUrl;
-    private $credentials = [];
-    private $client;
-    private $padronClient;
+    private string $cuit;
+    private string $cert;
+    private string $key;
+    private string $wsaaUrl;
+    private string $wswUrl;
+    private string $padronUrl;
+    private array $credentials = [];
+    private \SoapClient $client;
+    private \SoapClient $padronClient;
 
-    public function __construct($cuit, $certPath, $keyPath) {
+    public function __construct(string $cuit, string $certPath, string $keyPath) {
         $this->cuit = $cuit;
         $this->cert = $certPath;
         $this->key = $keyPath;
@@ -25,7 +25,7 @@ class AfipWs {
         $this->initSoapClients();
     }
 
-    private function login($service) {
+    private function login(string $service): void {
         $tra = $this->createTRA($service);
         $cms = $this->signTRA($tra);
         $response = $this->callWSAA($cms);
@@ -65,7 +65,7 @@ class AfipWs {
         file_put_contents(LOG_DIR . "wsaa_success_$service.log", "Login exitoso para $service\nToken: {$this->credentials[$service]['token']}\nSign: {$this->credentials[$service]['sign']}");
     }
 
-    private function createTRA($service) {
+    private function createTRA(string $service): string {
         $timezone = new \DateTimeZone('America/Argentina/Buenos_Aires');
         $now = new \DateTime('now', $timezone);
 
@@ -94,7 +94,7 @@ class AfipWs {
         return file_get_contents($traPath);
     }
 
-    private function signTRA($tra) {
+    private function signTRA(string $tra): string {
         $tmpTRA = LOG_DIR . 'TRA.tmp';
         $tmpCMS = LOG_DIR . 'TRA.cms';
         file_put_contents($tmpTRA, $tra);
@@ -116,9 +116,14 @@ class AfipWs {
 
         $cms = '';
         $file = fopen($tmpCMS, 'r');
+        if ($file === false) {
+            throw new \Exception("No se pudo abrir el archivo CMS temporal");
+        }
+        
         $i = 0;
         while (!feof($file)) {
             $buffer = fgets($file);
+            if ($buffer === false) break;
             if ($i++ >= 4) {
                 $cms .= $buffer;
             }
@@ -132,7 +137,7 @@ class AfipWs {
         return $cms;
     }
 
-    private function callWSAA($cms) {
+    private function callWSAA(string $cms): string {
         $soapRequest = '<?xml version="1.0" encoding="UTF-8"?>' .
             '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">' .
             '<soap:Body>' .
@@ -165,7 +170,7 @@ class AfipWs {
         return $response;
     }
 
-    private function initSoapClients() {
+    private function initSoapClients(): void {
         $this->client = new \SoapClient($this->wswUrl . "?WSDL", [
             'soap_version' => SOAP_1_1,
             'exceptions' => true,
@@ -178,7 +183,7 @@ class AfipWs {
         ]);
     }
 
-    public function consultarCUIT($cuit) {
+    public function consultarCUIT(string $cuit): array {
         if (!isset($this->credentials['ws_sr_padron_a13'])) {
             $this->login('ws_sr_padron_a13');
         }
@@ -218,7 +223,7 @@ class AfipWs {
         }
     }
 
-    public function crearFactura($data) {
+    public function crearFactura(array $data): array {
         if (!isset($this->credentials['wsfe'])) {
             $this->login('wsfe');
         }
@@ -341,7 +346,7 @@ class AfipWs {
         }
     }
 
-    public function getLastCMP($ptoVta, $tipoComp) {
+    public function getLastCMP(int $ptoVta, int $tipoComp): int {
         if (!isset($this->credentials['wsfe'])) {
             $this->login('wsfe');
         }
@@ -352,8 +357,8 @@ class AfipWs {
                 'Sign' => $this->credentials['wsfe']['sign'],
                 'Cuit' => $this->cuit
             ],
-            'PtoVta' => (int)$ptoVta,
-            'CbteTipo' => (int)$tipoComp
+            'PtoVta' => $ptoVta,
+            'CbteTipo' => $tipoComp
         ];
         file_put_contents(LOG_DIR . 'wsfe_last_cmp_request.log', "Solicitud a FECompUltimoAutorizado:\n" . json_encode($request, JSON_PRETTY_PRINT));
         $response = $this->client->FECompUltimoAutorizado($request);

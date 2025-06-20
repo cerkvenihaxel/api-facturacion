@@ -2,7 +2,7 @@
     "name": "axelcrkv/proyecto-afip-api",
     "description": "API para facturación con AFIP",
     "require": {
-        "php": "^7.4",
+        "php": "^8.2",
         "setasign/fpdf": "^1.8"
     },
     "autoload": {

@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# Certificados (se montan como volumen)
+certs/*
+!certs/.gitkeep
+
+# Facturas generadas
+public/facturas/*
+!public/facturas/.gitkeep
+
+# Dependencias (se instalan en el container)
+vendor/
+
+# Archivos de desarrollo
+README.md
+*.md
+.env*
+
+# Archivos temporales
+*.tmp
+*.log
+*.cache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db 

@@ -1,0 +1,77 @@
+# Dockerfile para desarrollo con Xdebug
+FROM php:8.2-apache
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    libxml2-dev \
+    libzip-dev \
+    libgd-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libonig-dev \
+    unzip \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configurar y instalar extensiones PHP
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    soap \
+    openssl \
+    gd \
+    zip \
+    mbstring \
+    xml \
+    && docker-php-ext-enable soap openssl gd zip mbstring xml
+
+# Instalar Xdebug para desarrollo
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug
+
+# Configurar Xdebug
+RUN echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.log=/var/log/xdebug.log" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+# Instalar Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Configurar Apache
+RUN a2enmod rewrite
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Crear directorio de trabajo
+WORKDIR /var/www/html
+
+# Copiar archivos de configuración de Composer
+COPY composer.json composer.lock ./
+
+# Instalar dependencias de PHP (incluyendo dev)
+RUN composer install --optimize-autoloader --no-interaction
+
+# Copiar el código de la aplicación
+COPY . .
+
+# Crear directorios necesarios y establecer permisos
+RUN mkdir -p logs public/facturas certs \
+    && chown -R www-data:www-data logs public/facturas certs \
+    && chmod -R 755 logs public/facturas certs
+
+# Configurar Apache para servir desde el directorio public
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+RUN sed -i 's|<Directory /var/www/>|<Directory /var/www/html/public>|g' /etc/apache2/apache2.conf
+RUN sed -i 's|</Directory>|</Directory>|g' /etc/apache2/apache2.conf
+
+# Configurar variables de entorno para desarrollo
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+ENV XDEBUG_MODE=debug
+
+# Exponer puertos
+EXPOSE 80 9003
+
+# Comando por defecto
+CMD ["apache2-foreground"] 

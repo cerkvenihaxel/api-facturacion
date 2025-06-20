@@ -6,6 +6,13 @@ use AfipApi\FacturaPDF;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
+    
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'JSON inválido: ' . json_last_error_msg()]);
+        exit;
+    }
+    
     try {
         $afip = new AfipWs(CUIT_EMISOR, CERT_PATH, KEY_PATH);
 
@@ -25,16 +32,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $facturadoData = ['error' => $e->getMessage()];
         }
 
-        $lastCMP = $afip->getLastCMP($input['PtoVta'], $input['TipoComp']);
+        $lastCMP = $afip->getLastCMP((int)$input['PtoVta'], (int)$input['TipoComp']);
         $nro = $lastCMP + 1;
 
         $facturaData = [
-            'PtoVta' => $input['PtoVta'],
-            'TipoComp' => $input['TipoComp'],
+            'PtoVta' => (int)$input['PtoVta'],
+            'TipoComp' => (int)$input['TipoComp'],
             'facCuit' => $input['facCuit'],
             'nro' => $nro,
             'FechaComp' => $input['FechaComp'],
-            'facTotal' => $input['facTotal'],
+            'facTotal' => (float)$input['facTotal'],
             'facPeriodo_inicio' => $input['facPeriodo_inicio'],
             'facPeriodo_fin' => $input['facPeriodo_fin'],
             'fechaUltimoDia' => $input['fechaUltimoDia'],

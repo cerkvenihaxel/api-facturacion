@@ -5,7 +5,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use FPDF;
 
 class FacturaPDF extends FPDF {
-    public function generarFactura($data) {
+    public function generarFactura(array $data): string {
         $this->AddPage();
         $this->SetFont('Arial', '', 12);
 

@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  afip-api:
+    build: .
+    container_name: afip-api
+    ports:
+      - "8080:80"
+    volumes:
+      # Montar certificados (importante para AFIP)
+      - ./certs:/var/www/html/certs:ro
+      # Montar logs para debugging
+      - ./logs:/var/www/html/logs
+      # Montar facturas generadas
+      - ./public/facturas:/var/www/html/public/facturas
+      # Para desarrollo: montar código fuente
+      - .:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html/public
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Servicio opcional para desarrollo con Xdebug
+  afip-api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: afip-api-dev
+    ports:
+      - "8081:80"
+      - "9003:9003"  # Xdebug
+    volumes:
+      - ./certs:/var/www/html/certs:ro
+      - ./logs:/var/www/html/logs
+      - ./public/facturas:/var/www/html/public/facturas
+      - .:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html/public
+      - XDEBUG_MODE=debug
+      - XDEBUG_CONFIG=client_host=host.docker.internal
+    restart: unless-stopped
+    profiles:
+      - dev
+
+networks:
+  default:
+    name: afip-network 
