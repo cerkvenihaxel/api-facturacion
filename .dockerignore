@@ -1,39 +1,100 @@
 # Git
 .git
 .gitignore
-
-# Docker
-Dockerfile*
-docker-compose*
-.dockerignore
-
-# Logs
-logs/*
-!logs/.gitkeep
-
-# Facturas generadas
-public/facturas/*
-!public/facturas/.gitkeep
-
-# Dependencias (se instalan en el container)
-vendor/
-
-# Archivos de desarrollo
-README.md
-*.md
-.env*
-
-# Archivos temporales
-*.tmp
-*.log
-*.cache
+.gitattributes
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+data/
+database/
+storage/
+var/
+
+# Dependency directories
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Documentation
+README.md
+README_v2.md
+*.md
+documentacion.pdf
+POSTMAN-README.md
+
+# Docker files
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+.dockerignore
+
+# Testing
+tests/
+test-*.sh
+.phpunit.result.cache
+
+# Build artifacts
+build/
+dist/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Package files
+*.tar.gz
+*.zip
+
+# IDE specific
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Editor backups
+*~
+*.swp
+*.swo
+
+# Cache
+.cache/
+cache/ 

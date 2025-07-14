@@ -1,54 +1,167 @@
 version: '3.8'
 
 services:
+  # Servicio principal de la API
   afip-api:
-    build: .
-    container_name: afip-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: afip-api-facturacion
+    restart: unless-stopped
     ports:
       - "8080:80"
-    volumes:
-      # Montar certificados (importante para AFIP)
-      - ./certs:/var/www/html/certs:ro
-      # Montar logs para debugging
-      - ./logs:/var/www/html/logs
-      # Montar facturas generadas
-      - ./public/facturas:/var/www/html/public/facturas
-      # Para desarrollo: montar código fuente
-      - .:/var/www/html
-      - /var/www/html/vendor
     environment:
-      - APACHE_DOCUMENT_ROOT=/var/www/html/public
-    restart: unless-stopped
+      # Configuración de PHP
+      - PHP_ENV=production
+      - PHP_MEMORY_LIMIT=256M
+      - PHP_MAX_EXECUTION_TIME=300
+      
+      # Configuración de base de datos
+      - DB_TYPE=sqlite
+      - DB_PATH=/app/database/clients.db
+      
+      # Configuración de logging
+      - LOG_LEVEL=info
+      - LOG_PATH=/app/logs
+      
+      # Configuración de almacenamiento
+      - CERTIFICATES_PATH=/app/storage/certificates
+      - FACTURAS_PATH=/app/public/facturas
+      - UPLOADS_PATH=/app/storage/uploads
+      
+      # Configuración de AFIP
+      - AFIP_WSFE_PRODUCTION_URL=https://servicios1.afip.gov.ar/wsfev1/service.asmx
+      - AFIP_WSFE_TESTING_URL=https://wswhomo.afip.gov.ar/wsfev1/service.asmx
+      - AFIP_WSBFE_PRODUCTION_URL=https://servicios1.afip.gov.ar/wsbfev1/service.asmx
+      - AFIP_WSBFE_TESTING_URL=https://wswhomo.afip.gov.ar/wsbfev1/service.asmx
+      
+      # Configuración de seguridad
+      - API_RATE_LIMIT=100
+      - API_RATE_WINDOW=3600
+      - JWT_SECRET=your-secret-key-change-in-production
+      
+      # Configuración de Apache
+      - APACHE_RUN_USER=www-data
+      - APACHE_RUN_GROUP=www-data
+      - APACHE_LOG_LEVEL=warn
+    
+    volumes:
+      # Volúmenes persistentes
+      - afip_database:/app/database
+      - afip_logs:/app/logs
+      - afip_certificates:/app/storage/certificates
+      - afip_facturas:/app/public/facturas
+      - afip_uploads:/app/storage/uploads
+      
+      # Volúmenes de configuración (opcional)
+      # - ./config/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      # - ./config/apache.conf:/etc/apache2/sites-available/000-default.conf:ro
+    
+    networks:
+      - afip-network
+    
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health?api_key=health_check"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 30s
+    
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.afip-api.rule=Host(`afip-api.localhost`)"
+      - "traefik.http.services.afip-api.loadbalancer.server.port=80"
+    
+    # Configuración de recursos
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
-  # Servicio opcional para desarrollo con Xdebug
-  afip-api-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: afip-api-dev
-    ports:
-      - "8081:80"
-      - "9003:9003"  # Xdebug
-    volumes:
-      - ./certs:/var/www/html/certs:ro
-      - ./logs:/var/www/html/logs
-      - ./public/facturas:/var/www/html/public/facturas
-      - .:/var/www/html
-      - /var/www/html/vendor
-    environment:
-      - APACHE_DOCUMENT_ROOT=/var/www/html/public
-      - XDEBUG_MODE=debug
-      - XDEBUG_CONFIG=client_host=host.docker.internal
-    restart: unless-stopped
-    profiles:
-      - dev
+  # Servicio de base de datos (opcional - para usar MySQL/PostgreSQL)
+  # database:
+  #   image: mysql:8.0
+  #   container_name: afip-api-mysql
+  #   restart: unless-stopped
+  #   environment:
+  #     - MYSQL_ROOT_PASSWORD=root_password
+  #     - MYSQL_DATABASE=afip_api
+  #     - MYSQL_USER=afip_user
+  #     - MYSQL_PASSWORD=afip_password
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #     - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  #   networks:
+  #     - afip-network
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
 
+  # Servicio de monitoreo (opcional)
+  # monitoring:
+  #   image: prom/prometheus:latest
+  #   container_name: afip-api-monitoring
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus_data:/prometheus
+  #   networks:
+  #     - afip-network
+
+# Redes
 networks:
-  default:
-    name: afip-network 
+  afip-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volúmenes persistentes
+volumes:
+  afip_database:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/database
+  
+  afip_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/logs
+  
+  afip_certificates:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/certificates
+  
+  afip_facturas:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/facturas
+  
+  afip_uploads:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/uploads
+
+  # Volúmenes para servicios opcionales
+  # mysql_data:
+  # prometheus_data: 
